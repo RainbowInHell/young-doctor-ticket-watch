@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read # no state file is written, so nothing more is needed
+  contents: write # to commit state.json when the performance dates change
 
 concurrency:
   group: check-tickets
@@ -22,7 +22,20 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
+
       - run: node check.js
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+      - name: Persist state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add state.json
+          if git diff --staged --quiet; then
+            echo "state unchanged"
+          else
+            git commit -m "state: performance dates changed"
+            git push || (git pull --rebase -q && git push)
+          fi

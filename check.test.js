@@ -5,7 +5,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert');
-const { parseShows, tceAvailable, bycardDates } = require('./check.js');
+const { parseShows, tceAvailable, bycardDates, newShows } = require('./check.js');
 
 // Verbatim excerpt of https://puppet-minsk.by/spektakli/spektakli-dlya-vzroslykh/item/217-zapiski-yunogo-vracha
 const PUPPET_HTML = `
@@ -95,4 +95,19 @@ test('bycardDates reflects the live empty calendar, and a populated one', () => 
 test('bycard isSelling must not be used as the signal', () => {
   // live payload: isSelling === 1 while the calendar is empty
   assert.deepStrictEqual(bycardDates({ calendar: [], performance: { isSelling: 1 } }), []);
+});
+
+test('newShows reports only performances absent from the previous run', () => {
+  const shows = [{ id: '4956' }, { id: '4957' }, { id: '5011' }];
+  assert.deepStrictEqual(newShows(shows, { showIds: ['4956', '4957'] }).map((s) => s.id), ['5011']);
+  assert.deepStrictEqual(newShows(shows, { showIds: ['4956', '4957', '5011'] }), []);
+});
+
+test('newShows treats missing or corrupt state as "nothing new", never as "everything is new"', () => {
+  assert.deepStrictEqual(newShows([{ id: '4956' }, { id: '4957' }], null), []);
+});
+
+test('newShows does not re-alert for a date that transiently vanished and came back', () => {
+  // The theatre page returned 200 with no dates once; state still holds both ids.
+  assert.deepStrictEqual(newShows([{ id: '4956' }], { showIds: ['4956', '4957'] }), []);
 });
